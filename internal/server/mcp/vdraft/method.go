@@ -185,8 +185,9 @@ func toolsListHandler(ctx context.Context, id jsonrpc.RequestId, resourceMgr *re
 	}
 
 	urlParams, _ := util.UrlParamsFromContext(ctx)
+	supportsSecureParams := parseSupportsSecureParams(body)
 	toolsMap := resourceMgr.GetToolsMap()
-	listToolsResult, err := GenerateListToolsResult(resourceMgr.GetSourcesMap(), toolset, toolsMap, urlParams)
+	listToolsResult, err := GenerateListToolsResult(resourceMgr.GetSourcesMap(), toolset, toolsMap, urlParams, supportsSecureParams)
 	if err != nil {
 		err = fmt.Errorf("error generating manifest: %w", err)
 		return jsonrpc.NewError(id, jsonrpc.INTERNAL_ERROR, err.Error(), nil), err
@@ -223,7 +224,6 @@ func toolsCallHandler(ctx context.Context, id jsonrpc.RequestId, toolset tools.T
 	}
 
 	toolName := req.Params.Name
-	toolArgument := req.Params.Arguments
 	logger.DebugContext(ctx, fmt.Sprintf("tool name: %s", toolName))
 
 	// Update span name and set gen_ai attributes
@@ -245,6 +245,50 @@ func toolsCallHandler(ctx context.Context, id jsonrpc.RequestId, toolset tools.T
 		err = fmt.Errorf("invalid tool name: tool with name %q does not exist", toolName)
 		return jsonrpc.NewError(id, jsonrpc.INVALID_PARAMS, err.Error(), nil), err
 	}
+
+	// Validate capability and parameter routing
+	supportsSecureParams := parseSupportsSecureParams(body)
+
+	var hasSecureParams bool
+	secureParamMap := make(map[string]bool)
+	for _, p := range tool.GetParameters() {
+		if p.GetSecure() {
+			hasSecureParams = true
+			secureParamMap[p.GetName()] = true
+		}
+	}
+
+	if hasSecureParams && !supportsSecureParams {
+		err = fmt.Errorf("tool %q requires secure-params extension which is not supported by the client", req.Params.Name)
+		return jsonrpc.NewError(id, jsonrpc.METHOD_NOT_FOUND, err.Error(), nil), err
+	}
+
+	// Validate that secure parameters are only passed in secureArguments
+	for argName := range req.Params.Arguments {
+		if secureParamMap[argName] {
+			err = fmt.Errorf("parameter %q is secure and must not be passed in standard arguments", argName)
+			return jsonrpc.NewError(id, jsonrpc.INVALID_PARAMS, err.Error(), nil), err
+		}
+	}
+
+	// Validate that non-secure parameters are not passed in secureArguments
+	for argName := range req.Params.SecureArguments {
+		if !secureParamMap[argName] {
+			err = fmt.Errorf("parameter %q is not secure and must not be passed in secureArguments", argName)
+			return jsonrpc.NewError(id, jsonrpc.INVALID_PARAMS, err.Error(), nil), err
+		}
+	}
+
+	// Merge standard arguments and secure arguments on the server side
+	mergedArguments := make(map[string]any)
+	for k, v := range req.Params.Arguments {
+		mergedArguments[k] = v
+	}
+	for k, v := range req.Params.SecureArguments {
+		mergedArguments[k] = v
+	}
+
+	toolArgument := mergedArguments
 
 	// Populate gen_ai attributes for operation duration metric
 	if genAIAttrs := util.GenAIMetricAttrsFromContext(ctx); genAIAttrs != nil {
@@ -598,4 +642,27 @@ func promptsGetHandler(ctx context.Context, id jsonrpc.RequestId, promptset prom
 		Id:      id,
 		Result:  result,
 	}, nil
+}
+
+func parseSupportsSecureParams(body []byte) bool {
+	var meta struct {
+		Params struct {
+			Meta struct {
+				Capabilities map[string]any `json:"capabilities"`
+			} `json:"_meta"`
+		} `json:"params"`
+	}
+	if err := json.Unmarshal(body, &meta); err != nil {
+		return false
+	}
+	caps := meta.Params.Meta.Capabilities
+	if caps == nil {
+		return false
+	}
+	val, ok := caps["toolbox/secure-params"]
+	if !ok {
+		return false
+	}
+	supported, ok := val.(bool)
+	return ok && supported
 }

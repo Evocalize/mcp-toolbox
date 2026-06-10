@@ -329,6 +329,7 @@ type Parameter interface {
 	Parse(any) (any, error)
 	Manifest() ParameterManifest
 	McpManifest() (ParameterMcpManifest, []string)
+	GetSecure() bool
 }
 
 // Parameters is a type used to allow unmarshal a list of parameters
@@ -479,11 +480,17 @@ type CommonParameter struct {
 	AuthServices   []ParamAuthService `yaml:"authServices"`
 	EmbeddedBy     string             `yaml:"embeddedBy"`
 	ValueFromParam string             `yaml:"valueFromParam"`
+	Secure         bool               `yaml:"secure"`
 }
 
 // GetName returns the name specified for the Parameter.
 func (p *CommonParameter) GetName() string {
 	return p.Name
+}
+
+// GetSecure returns whether the parameter is secure.
+func (p *CommonParameter) GetSecure() bool {
+	return p.Secure
 }
 
 // GetDesc returns the description specified for the Parameter.
