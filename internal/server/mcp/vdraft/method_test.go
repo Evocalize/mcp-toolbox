@@ -978,6 +978,14 @@ func TestToolsCallHandlerWithSecureParams(t *testing.T) {
 					},
 					"secureArguments": {
 						"api_key": "secret"
+					},
+					"_meta": {
+						"io.modelcontextprotocol/protocolVersion": "2026-06-18",
+						"io.modelcontextprotocol/clientInfo": {
+							"name": "TestClient",
+							"version": "1.0"
+						},
+						"io.modelcontextprotocol/clientCapabilities": {}
 					}
 				}
 			}`,
@@ -997,6 +1005,12 @@ func TestToolsCallHandlerWithSecureParams(t *testing.T) {
 						"api_key": "secret"
 					},
 					"_meta": {
+						"io.modelcontextprotocol/protocolVersion": "2026-06-18",
+						"io.modelcontextprotocol/clientInfo": {
+							"name": "TestClient",
+							"version": "1.0"
+						},
+						"io.modelcontextprotocol/clientCapabilities": {},
 						"capabilities": {
 							"toolbox/secure-params": true
 						}
@@ -1020,6 +1034,12 @@ func TestToolsCallHandlerWithSecureParams(t *testing.T) {
 						"api_key": "secret"
 					},
 					"_meta": {
+						"io.modelcontextprotocol/protocolVersion": "2026-06-18",
+						"io.modelcontextprotocol/clientInfo": {
+							"name": "TestClient",
+							"version": "1.0"
+						},
+						"io.modelcontextprotocol/clientCapabilities": {},
 						"capabilities": {
 							"toolbox/secure-params": true
 						}
@@ -1044,6 +1064,12 @@ func TestToolsCallHandlerWithSecureParams(t *testing.T) {
 						"api_key": "secret"
 					},
 					"_meta": {
+						"io.modelcontextprotocol/protocolVersion": "2026-06-18",
+						"io.modelcontextprotocol/clientInfo": {
+							"name": "TestClient",
+							"version": "1.0"
+						},
+						"io.modelcontextprotocol/clientCapabilities": {},
 						"capabilities": {
 							"toolbox/secure-params": true
 						}
