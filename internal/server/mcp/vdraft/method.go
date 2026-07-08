@@ -29,6 +29,7 @@ import (
 	"github.com/googleapis/mcp-toolbox/internal/server/mcp/jsonrpc"
 	mcputil "github.com/googleapis/mcp-toolbox/internal/server/mcp/util"
 	"github.com/googleapis/mcp-toolbox/internal/server/resources"
+	"github.com/googleapis/mcp-toolbox/internal/sources"
 	"github.com/googleapis/mcp-toolbox/internal/tools"
 	"github.com/googleapis/mcp-toolbox/internal/util"
 	"github.com/googleapis/mcp-toolbox/internal/util/parameters"
@@ -247,7 +248,7 @@ func toolsCallHandler(ctx context.Context, id jsonrpc.RequestId, toolset tools.T
 		return jsonrpc.NewError(id, jsonrpc.INVALID_PARAMS, err.Error(), nil), err
 	}
 
-	toolArguments, err := validateAndMergeSecureParams(tool, req, body)
+	toolArguments, err := validateAndMergeSecureParams(resourceMgr.GetSourcesMap(), tool, req, body)
 	if err != nil {
 		return jsonrpc.NewError(id, jsonrpc.INVALID_PARAMS, err.Error(), nil), err
 	}
@@ -629,13 +630,17 @@ func parseSupportsSecureParams(body []byte) bool {
 }
 
 // validateAndMergeSecureParams validates and merges standard and secure arguments based on the tool's parameter definitions.
-func validateAndMergeSecureParams(tool tools.Tool, req CallToolRequest, body []byte) (map[string]any, error) {
+func validateAndMergeSecureParams(srcs map[string]sources.Source, tool tools.Tool, req CallToolRequest, body []byte) (map[string]any, error) {
 	// Validate capability and parameter routing
 	supportsSecureParams := parseSupportsSecureParams(body)
 
 	var hasSecureParams bool
 	secureParamMap := make(map[string]bool)
-	for _, p := range tool.GetParameters() {
+	params, err := tool.GetParameters(srcs)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range params {
 		if p.GetSecure() {
 			hasSecureParams = true
 			secureParamMap[p.GetName()] = true
