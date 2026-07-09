@@ -124,7 +124,7 @@ func GenerateListToolsResult(srcs map[string]sources.Source, t tools.Toolset, to
 		}
 		var hasSecureParams bool
 		for _, p := range params {
-			if p.GetSecure() {
+			if p != nil && p.GetSecure() {
 				hasSecureParams = true
 				break
 			}

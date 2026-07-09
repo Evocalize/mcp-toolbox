@@ -29,7 +29,6 @@ import (
 	"github.com/googleapis/mcp-toolbox/internal/server/mcp/jsonrpc"
 	mcputil "github.com/googleapis/mcp-toolbox/internal/server/mcp/util"
 	"github.com/googleapis/mcp-toolbox/internal/server/resources"
-	"github.com/googleapis/mcp-toolbox/internal/sources"
 	"github.com/googleapis/mcp-toolbox/internal/tools"
 	"github.com/googleapis/mcp-toolbox/internal/util"
 	"github.com/googleapis/mcp-toolbox/internal/util/parameters"
@@ -187,7 +186,7 @@ func toolsListHandler(ctx context.Context, id jsonrpc.RequestId, resourceMgr *re
 	}
 
 	urlParams, _ := util.UrlParamsFromContext(ctx)
-	supportsSecureParams := parseSupportsSecureParams(body)
+	supportsSecureParams := supportsSecureParams(req.Params.Meta)
 	toolsMap := resourceMgr.GetToolsMap()
 	listToolsResult, err := GenerateListToolsResult(resourceMgr.GetSourcesMap(), toolset, toolsMap, urlParams, supportsSecureParams)
 	if err != nil {
@@ -248,7 +247,12 @@ func toolsCallHandler(ctx context.Context, id jsonrpc.RequestId, toolset tools.T
 		return jsonrpc.NewError(id, jsonrpc.INVALID_PARAMS, err.Error(), nil), err
 	}
 
-	toolArguments, err := validateAndMergeSecureParams(resourceMgr.GetSourcesMap(), tool, req, body)
+	paramDefs, err := tool.GetParameters(resourceMgr.GetSourcesMap())
+	if err != nil {
+		return jsonrpc.NewError(id, jsonrpc.INTERNAL_ERROR, err.Error(), nil), err
+	}
+
+	toolArguments, err := validateAndMergeSecureParams(req, paramDefs)
 	if err != nil {
 		return jsonrpc.NewError(id, jsonrpc.INVALID_PARAMS, err.Error(), nil), err
 	}
@@ -606,49 +610,34 @@ func promptsGetHandler(ctx context.Context, id jsonrpc.RequestId, promptset prom
 	}, nil
 }
 
-func parseSupportsSecureParams(body []byte) bool {
-	var meta struct {
-		Params struct {
-			Meta struct {
-				Capabilities map[string]any `json:"capabilities"`
-			} `json:"_meta"`
-		} `json:"params"`
-	}
-	if err := json.Unmarshal(body, &meta); err != nil {
+// supportsSecureParams checks if the client declared support for the com.google.cloud/secure-params extension
+// in the request's experimental client capabilities (io.modelcontextprotocol/clientCapabilities.experimental).
+func supportsSecureParams(meta *RequestMetaObject) bool {
+	if meta == nil {
 		return false
 	}
-	caps := meta.Params.Meta.Capabilities
-	if caps == nil {
+	caps := meta.MetaClientCapabilities
+	if caps == nil || caps.Experimental == nil {
 		return false
 	}
-	val, ok := caps["toolbox/secure-params"]
-	if !ok {
-		return false
-	}
-	supported, ok := val.(bool)
-	return ok && supported
+	val, ok := caps.Experimental["com.google.cloud/secure-params"].(bool)
+	return ok && val
 }
 
-// validateAndMergeSecureParams validates and merges standard and secure arguments based on the tool's parameter definitions.
-func validateAndMergeSecureParams(srcs map[string]sources.Source, tool tools.Tool, req CallToolRequest, body []byte) (map[string]any, error) {
-	// Validate capability and parameter routing
-	supportsSecureParams := parseSupportsSecureParams(body)
-
+// validateAndMergeSecureParams validates and merges standard and secure arguments based on secure parameter definitions.
+func validateAndMergeSecureParams(req CallToolRequest, paramDefs parameters.Parameters) (map[string]any, error) {
 	var hasSecureParams bool
 	secureParamMap := make(map[string]bool)
-	params, err := tool.GetParameters(srcs)
-	if err != nil {
-		return nil, err
-	}
-	for _, p := range params {
-		if p.GetSecure() {
+	for _, p := range paramDefs {
+		if p != nil && p.GetSecure() {
 			hasSecureParams = true
 			secureParamMap[p.GetName()] = true
 		}
 	}
 
-	if hasSecureParams && !supportsSecureParams {
-		return nil, fmt.Errorf("tool %q requires secure-params extension which is not supported by the client", req.Params.Name)
+	// If tool has secure params and client does not support secure params extension, return error
+	if hasSecureParams && !supportsSecureParams(req.Params.Meta) {
+		return nil, fmt.Errorf("tool %q requires com.google.cloud/secure-params extension which is not supported by the client", req.Params.Name)
 	}
 
 	// Validate that secure parameters are only passed in secureArguments
@@ -665,7 +654,7 @@ func validateAndMergeSecureParams(srcs map[string]sources.Source, tool tools.Too
 		}
 	}
 
-	// Merge standard arguments and secure arguments using standard maps.Copy
+	// Merge standard arguments and secure arguments.
 	toolArgument := make(map[string]any)
 	maps.Copy(toolArgument, req.Params.Arguments)
 	maps.Copy(toolArgument, req.Params.SecureArguments)
