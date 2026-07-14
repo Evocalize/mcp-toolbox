@@ -30,6 +30,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const readOnlySessionOpts = " options='-c alloydb_session_read_only=locked'"
+
 const SourceType string = "alloydb-postgres"
 
 // validate interface
@@ -167,7 +169,7 @@ func getConnectionConfig(ctx context.Context, user, pass, dbname string, readOnl
 	if user != "" && pass != "" {
 		dsn := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable application_name=%s", user, pass, dbname, userAgent)
 		if readOnly {
-			dsn += " options='-c alloydb_session_read_only=locked'"
+			dsn += readOnlySessionOpts
 		}
 		useIAM = false
 		return dsn, useIAM, nil
@@ -190,7 +192,7 @@ func getConnectionConfig(ctx context.Context, user, pass, dbname string, readOnl
 	// Construct IAM connection string with username
 	dsn := fmt.Sprintf("user=%s dbname=%s sslmode=disable application_name=%s", user, dbname, userAgent)
 	if readOnly {
-		dsn += " options='-c alloydb_session_read_only=locked'"
+		dsn += readOnlySessionOpts
 	}
 	return dsn, useIAM, nil
 }

@@ -58,6 +58,7 @@ The AlloyDB MCP server provides the following tools:
 |:---------------------------------|:-----------------------------------------------------------|
 | `list_tables`                    | Lists detailed schema information for user-created tables. |
 | `execute_sql`                    | Executes a SQL query.                                      |
+| `execute_sql_readonly`           | Executes a read-only SQL query (explicitly enforces readOnlyHint). |
 | `list_active_queries`            | List currently running queries.                            |
 | `list_available_extensions`      | List available extensions for installation.                |
 | `list_installed_extensions`      | List installed extensions.                                 |

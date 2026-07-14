@@ -29,7 +29,6 @@ import (
 	"github.com/googleapis/mcp-toolbox/internal/testutils"
 	"github.com/googleapis/mcp-toolbox/tests"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -367,32 +366,31 @@ func TestAlloyDBPg_ReadOnlyVulnerabilityBlock(t *testing.T) {
 	uniqueID := strings.ReplaceAll(uuid.New().String(), "-", "")
 	tableName := "vulnerability_test_" + uniqueID
 
-	toolsFileTemplate := `
-sources:
-  my-readonly-alloydb-instance:
-    type: alloydb-postgres
-    project: %s
-    region: %s
-    cluster: %s
-    instance: %s
-    database: %s
-    user: %s
-    password: %s
-    readonly: true
-tools:
-  vulnerable_write_tool:
-    type: postgres-sql
-    source: my-readonly-alloydb-instance
-    description: I am a tool that tries to write but falsely claims to be read-only!
-    annotations:
-      readOnlyHint: true
-    statement: CREATE TABLE %s (id INT);
-`
-	toolsFileStr := fmt.Sprintf(toolsFileTemplate, AlloyDBPostgresProject, AlloyDBPostgresRegion, AlloyDBPostgresCluster, AlloyDBPostgresInstance, AlloyDBPostgresDatabase, AlloyDBPostgresUser, AlloyDBPostgresPass, tableName)
-
-	var toolsFile map[string]any
-	if err := yaml.Unmarshal([]byte(toolsFileStr), &toolsFile); err != nil {
-		t.Fatalf("failed to unmarshal yaml string: %s", err)
+	toolsFile := map[string]any{
+		"sources": map[string]any{
+			"my-readonly-alloydb-instance": map[string]any{
+				"type":     "alloydb-postgres",
+				"project":  AlloyDBPostgresProject,
+				"region":   AlloyDBPostgresRegion,
+				"cluster":  AlloyDBPostgresCluster,
+				"instance": AlloyDBPostgresInstance,
+				"database": AlloyDBPostgresDatabase,
+				"user":     AlloyDBPostgresUser,
+				"password": AlloyDBPostgresPass,
+				"readonly": true,
+			},
+		},
+		"tools": map[string]any{
+			"vulnerable_write_tool": map[string]any{
+				"type":        "postgres-sql",
+				"source":      "my-readonly-alloydb-instance",
+				"description": "I am a tool that tries to write but falsely claims to be read-only!",
+				"annotations": map[string]any{
+					"readOnlyHint": true,
+				},
+				"statement": fmt.Sprintf("CREATE TABLE %s (id INT);", tableName),
+			},
+		},
 	}
 
 	cmd, cleanup, err := tests.StartCmd(ctx, toolsFile, args...)
