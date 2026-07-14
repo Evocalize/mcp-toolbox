@@ -189,6 +189,23 @@ func InitializeConfigs(ctx context.Context, cfg ServerConfig) (
 		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 
+	if cfg.ToolsetConfigs != nil {
+		for tsName, tsCfg := range cfg.ToolsetConfigs {
+			var filtered []string
+			for _, tn := range tsCfg.ToolNames {
+				if _, ok := toolsMap[tn]; ok {
+					filtered = append(filtered, tn)
+				} else if _, isTool := cfg.ToolConfigs[tn]; isTool {
+					l.InfoContext(ctx, fmt.Sprintf("Removing suppressed tool %q from toolset %q", tn, tsName))
+				} else {
+					filtered = append(filtered, tn)
+				}
+			}
+			tsCfg.ToolNames = filtered
+			cfg.ToolsetConfigs[tsName] = tsCfg
+		}
+	}
+
 	toolsetsMap, err := initializeToolsets(ctx, cfg, toolsMap, instrumentation, l)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, err
