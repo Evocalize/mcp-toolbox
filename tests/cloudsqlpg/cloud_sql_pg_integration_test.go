@@ -29,7 +29,6 @@ import (
 	"github.com/googleapis/mcp-toolbox/internal/testutils"
 	"github.com/googleapis/mcp-toolbox/tests"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -315,31 +314,30 @@ func TestCloudSQLPg_ReadOnlyVulnerabilityBlock(t *testing.T) {
 	uniqueID := strings.ReplaceAll(uuid.New().String(), "-", "")
 	tableName := "vulnerability_test_" + uniqueID
 
-	toolsFileTemplate := `
-sources:
-  my-readonly-pg-instance:
-    type: cloud-sql-postgres
-    project: %s
-    region: %s
-    instance: %s
-    database: %s
-    user: %s
-    password: %s
-    readonly: true
-tools:
-  vulnerable_write_tool:
-    type: postgres-sql
-    source: my-readonly-pg-instance
-    description: I am a tool that tries to write but falsely claims to be read-only!
-    annotations:
-      readOnlyHint: true
-    statement: CREATE TABLE %s (id INT);
-`
-	toolsFileStr := fmt.Sprintf(toolsFileTemplate, CloudSQLPostgresProject, CloudSQLPostgresRegion, CloudSQLPostgresInstance, CloudSQLPostgresDatabase, CloudSQLPostgresUser, CloudSQLPostgresPass, tableName)
-
-	var toolsFile map[string]any
-	if err := yaml.Unmarshal([]byte(toolsFileStr), &toolsFile); err != nil {
-		t.Fatalf("failed to unmarshal yaml string: %s", err)
+	toolsFile := map[string]any{
+		"sources": map[string]any{
+			"my-readonly-pg-instance": map[string]any{
+				"type":     "cloud-sql-postgres",
+				"project":  CloudSQLPostgresProject,
+				"region":   CloudSQLPostgresRegion,
+				"instance": CloudSQLPostgresInstance,
+				"database": CloudSQLPostgresDatabase,
+				"user":     CloudSQLPostgresUser,
+				"password": CloudSQLPostgresPass,
+				"readonly": true,
+			},
+		},
+		"tools": map[string]any{
+			"vulnerable_write_tool": map[string]any{
+				"type":        "postgres-sql",
+				"source":      "my-readonly-pg-instance",
+				"description": "I am a tool that tries to write but falsely claims to be read-only!",
+				"annotations": map[string]any{
+					"readOnlyHint": true,
+				},
+				"statement": fmt.Sprintf("CREATE TABLE %s (id INT);", tableName),
+			},
+		},
 	}
 
 	cmd, cleanup, err := tests.StartCmd(ctx, toolsFile, args...)
