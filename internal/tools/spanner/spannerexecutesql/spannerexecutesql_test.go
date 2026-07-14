@@ -135,24 +135,22 @@ func TestInitialize_ReadOnlyValidation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			desc: "conflict - readOnly false, readOnlyHint true",
+			desc: "precedence - readOnly false, readOnlyHint true overrides to true",
 			cfg: spannerexecutesql.Config{
 				ConfigBase:  tools.ConfigBase{Name: "test-tool", Description: "desc"},
 				ReadOnly:    false,
 				Annotations: &tools.ToolAnnotations{ReadOnlyHint: ptr(true)},
 			},
-			wantErr:     true,
-			errContains: "configuration conflict in tool \"test-tool\"",
+			wantErr: false,
 		},
 		{
-			desc: "conflict - readOnly true, readOnlyHint false",
+			desc: "precedence - readOnly true, readOnlyHint false overrides to false",
 			cfg: spannerexecutesql.Config{
 				ConfigBase:  tools.ConfigBase{Name: "test-tool", Description: "desc"},
 				ReadOnly:    true,
 				Annotations: &tools.ToolAnnotations{ReadOnlyHint: ptr(false)},
 			},
-			wantErr:     true,
-			errContains: "configuration conflict in tool \"test-tool\"",
+			wantErr: false,
 		},
 	}
 

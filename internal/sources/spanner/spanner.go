@@ -179,6 +179,10 @@ func (s *Source) RunSQL(ctx context.Context, readOnly bool, statement string, pa
 		stmt.Params = params
 	}
 
+	if !readOnly && s.ReadOnly {
+		return nil, fmt.Errorf("cannot execute write operations when the source is configured in read-only mode")
+	}
+
 	if readOnly || s.ReadOnly {
 		iter := s.SpannerClient().Single().Query(ctx, stmt)
 		results, opErr = processRows(iter)
