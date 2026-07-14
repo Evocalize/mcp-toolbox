@@ -56,6 +56,7 @@ The Cloud SQL for PostgreSQL MCP server provides the following tools:
 | Tool Name                        | Description                                                    |
 |:---------------------------------|:---------------------------------------------------------------|
 | `execute_sql`                    | Use this tool to execute sql.                                  |
+| `execute_sql_readonly`           | Executes a read-only SQL query (explicitly enforces readOnlyHint). |
 | `list_tables`                    | Lists detailed schema information for user-created tables.     |
 | `list_active_queries`            | List the top N currently running queries.                      |
 | `list_available_extensions`      | Discover all PostgreSQL extensions available for installation. |
