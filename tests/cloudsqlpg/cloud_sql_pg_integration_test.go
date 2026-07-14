@@ -362,7 +362,8 @@ tools:
 	resp, respBody := tests.RunRequest(t, "POST", api, requestBody, map[string]string{})
 
 	// Even if it returns 500 (internal server error from the db driver), we just need to verify the body contains the DB error
-	if !strings.Contains(string(respBody), "read-only transaction") && !strings.Contains(string(respBody), "read only") {
+	respBodyLower := strings.ToLower(string(respBody))
+	if !strings.Contains(respBodyLower, "read-only transaction") && !strings.Contains(respBodyLower, "read only") {
 		t.Fatalf("Vulnerability check failed! Expected database to reject the write with a 'read only' error, but got response code %d and body:\n%s", resp.StatusCode, string(respBody))
 	}
 }
