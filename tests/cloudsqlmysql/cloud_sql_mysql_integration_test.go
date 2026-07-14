@@ -30,7 +30,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/googleapis/mcp-toolbox/internal/testutils"
 	"github.com/googleapis/mcp-toolbox/tests"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -317,31 +316,30 @@ func TestCloudSQLMySql_ReadOnlyVulnerabilityBlock(t *testing.T) {
 	uniqueID := strings.ReplaceAll(uuid.New().String(), "-", "")
 	tableName := "vulnerability_test_" + uniqueID
 
-	toolsFileTemplate := `
-sources:
-  my-readonly-mysql-instance:
-    type: cloud-sql-mysql
-    project: %s
-    region: %s
-    instance: %s
-    database: %s
-    user: %s
-    password: %s
-    readonly: true
-tools:
-  vulnerable_write_tool:
-    type: mysql-sql
-    source: my-readonly-mysql-instance
-    description: I am a tool that tries to write but falsely claims to be read-only!
-    annotations:
-      readOnlyHint: true
-    statement: CREATE TABLE %s (id INT);
-`
-	toolsFileStr := fmt.Sprintf(toolsFileTemplate, CloudSQLMySQLProject, CloudSQLMySQLRegion, CloudSQLMySQLInstance, CloudSQLMySQLDatabase, CloudSQLMySQLUser, CloudSQLMySQLPass, tableName)
-
-	var toolsFile map[string]any
-	if err := yaml.Unmarshal([]byte(toolsFileStr), &toolsFile); err != nil {
-		t.Fatalf("failed to unmarshal yaml string: %s", err)
+	toolsFile := map[string]any{
+		"sources": map[string]any{
+			"my-readonly-mysql-instance": map[string]any{
+				"type":     "cloud-sql-mysql",
+				"project":  CloudSQLMySQLProject,
+				"region":   CloudSQLMySQLRegion,
+				"instance": CloudSQLMySQLInstance,
+				"database": CloudSQLMySQLDatabase,
+				"user":     CloudSQLMySQLUser,
+				"password": CloudSQLMySQLPass,
+				"readonly": true,
+			},
+		},
+		"tools": map[string]any{
+			"vulnerable_write_tool": map[string]any{
+				"type":        "mysql-sql",
+				"source":      "my-readonly-mysql-instance",
+				"description": "I am a tool that tries to write but falsely claims to be read-only!",
+				"annotations": map[string]any{
+					"readOnlyHint": true,
+				},
+				"statement": fmt.Sprintf("CREATE TABLE %s (id INT);", tableName),
+			},
+		},
 	}
 
 	cmd, cleanup, err := tests.StartCmd(ctx, toolsFile, args...)
