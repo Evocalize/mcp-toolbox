@@ -415,7 +415,7 @@ tools:
 	resp, respBody := tests.RunRequest(t, "POST", api, requestBody, map[string]string{})
 
 	bodyLower := strings.ToLower(string(respBody))
-	if !strings.Contains(bodyLower, "read-only") && !strings.Contains(bodyLower, "read only") {
+	if !strings.Contains(bodyLower, "read-only") && !strings.Contains(bodyLower, "read only") && !strings.Contains(bodyLower, "read_only") {
 		t.Fatalf("Vulnerability check failed! Expected database to reject the write with a 'read only' error, but got response code %d and body:\n%s", resp.StatusCode, string(respBody))
 	}
 }
