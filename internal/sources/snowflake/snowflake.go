@@ -22,6 +22,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/goccy/go-yaml"
 	"github.com/googleapis/mcp-toolbox/internal/sources"
@@ -170,6 +171,7 @@ func initSnowflakeConnection(ctx context.Context, tracer trace.Tracer, name, acc
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse private key: %w", err)
 		}
+		keepAlive := "true"
 		cfg := &sf.Config{
 			Account:       account,
 			User:          user,
@@ -179,6 +181,9 @@ func initSnowflakeConnection(ctx context.Context, tracer trace.Tracer, name, acc
 			Role:          role,
 			Authenticator: sf.AuthTypeJwt,
 			PrivateKey:    rsaKey,
+			// Heartbeat so the session token isn't expired out from under an
+			// idle pooled connection.
+			Params: map[string]*string{"client_session_keep_alive": &keepAlive},
 		}
 		dsn, err = sf.DSN(cfg)
 		if err != nil {
@@ -187,13 +192,21 @@ func initSnowflakeConnection(ctx context.Context, tracer trace.Tracer, name, acc
 	} else {
 		// Basic auth.
 		// Snowflake DSN format: user:password@account/database/schema?warehouse=warehouse&role=role
-		dsn = fmt.Sprintf("%s:%s@%s/%s/%s?warehouse=%s&role=%s", user, password, account, database, schema, warehouse, role)
+		dsn = fmt.Sprintf("%s:%s@%s/%s/%s?warehouse=%s&role=%s&client_session_keep_alive=true", user, password, account, database, schema, warehouse, role)
 	}
 
 	db, err := sqlx.ConnectContext(ctx, "snowflake", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create connection: %w", err)
 	}
+
+	// Snowflake session/master tokens expire on an idle connection (~4h default)
+	// and the driver won't re-auth a stale pooled connection, so long-idle
+	// connections fail with "390114: Authentication token has expired". Recycle
+	// connections well inside that window so a fresh JWT re-auth happens; combined
+	// with client_session_keep_alive above, queries never hit an expired token.
+	db.SetConnMaxLifetime(1 * time.Hour)
+	db.SetConnMaxIdleTime(30 * time.Minute)
 
 	return db, nil
 }
